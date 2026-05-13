@@ -1,0 +1,193 @@
+<meta name='viewport' content='width=device-width, initial-scale=1'/><!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#059669">
+    <title>ParaSuivi Pro</title>
+    <link rel="manifest" href="manifest.json">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body class="bg-gray-100 min-h-screen pb-24">
+
+    <!-- Header -->
+    <nav class="bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-xl font-bold italic">ParaSuivi <span class="font-light">Expert</span></h1>
+            <div class="flex gap-2">
+                <button onclick="exportToCSV()" class="text-xs bg-emerald-600 px-2 py-1 rounded"><i class="fas fa-download"></i> CSV</button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto p-4">
+        
+        <!-- Recherche -->
+        <div class="relative mb-6">
+            <input type="text" id="search" placeholder="Rechercher un client ou un bébé..." 
+                class="w-full pl-10 pr-4 py-3 rounded-xl border-none shadow-sm focus:ring-2 focus:ring-emerald-500">
+            <i class="fas fa-search absolute left-3 top-4 text-gray-400"></i>
+        </div>
+
+        <!-- Formulaire d'ajout -->
+        <div id="form-container" class="hidden bg-white p-6 rounded-2xl shadow-lg mb-6 border-t-4 border-emerald-600">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="font-bold text-gray-700">NOUVEAU SUIVI</h2>
+                <button onclick="toggleForm()" class="text-gray-400"><i class="fas fa-times"></i></button>
+            </div>
+
+            <form id="client-form" class="space-y-4">
+                <!-- Infos Contact -->
+                <div class="grid grid-cols-2 gap-2">
+                    <input type="text" id="name" placeholder="Nom du Client" required class="p-3 border rounded-lg w-full">
+                    <input type="tel" id="phone" placeholder="Téléphone" required class="p-3 border rounded-lg w-full">
+                </div>
+                <input type="email" id="email" placeholder="Email (Optionnel)" class="p-3 border rounded-lg w-full">
+
+                <hr>
+
+                <!-- Type de produit -->
+                <label class="block text-sm font-bold text-gray-600 uppercase">Catégorie de produit :</label>
+                <select id="prodType" onchange="toggleFields()" class="w-full p-3 border rounded-lg bg-emerald-50 font-bold">
+                    <option value="Bebe">👶 Nutrition Bébé</option>
+                    <option value="Peau">✨ Crème & Cosmétique</option>
+                </select>
+
+                <!-- Champs Spécifiques Bébé -->
+                <div id="fields-bebe" class="space-y-3 bg-blue-50 p-3 rounded-lg">
+                    <div class="grid grid-cols-2 gap-2">
+                        <input type="text" id="poidsInit" placeholder="Poids Initial (kg)" class="p-2 border rounded">
+                        <input type="text" id="poids1M" placeholder="Poids après 1 mois" class="p-2 border rounded">
+                    </div>
+                    <input type="text" id="produitLait" placeholder="Produit/Lait utilisé" class="p-2 border rounded w-full">
+                </div>
+
+                <!-- Champs Spécifiques Peau -->
+                <div id="fields-peau" class="hidden space-y-3 bg-pink-50 p-3 rounded-lg">
+                    <textarea id="etatPeauInit" placeholder="État de la peau au début (rougeurs, acné...)" class="p-2 border rounded w-full"></textarea>
+                    <textarea id="etatPeauFinal" placeholder="Évolution après utilisation" class="p-2 border rounded w-full"></textarea>
+                </div>
+
+                <button type="submit" class="w-full bg-emerald-600 text-white py-4 rounded-xl font-bold shadow-lg uppercase tracking-wider">
+                    Enregistrer le suivi
+                </button>
+            </form>
+        </div>
+
+        <!-- Liste des Fiches -->
+        <div id="client-list" class="space-y-4"></div>
+    </div>
+
+    <!-- Bouton flottant -->
+    <button onclick="toggleForm()" class="fixed bottom-6 right-6 bg-emerald-700 text-white w-16 h-16 rounded-full shadow-2xl flex items-center justify-center text-2xl z-50">
+        <i class="fas fa-plus"></i>
+    </button>
+
+    <script>
+        let clients = JSON.parse(localStorage.getItem('paraExpert')) || [];
+
+        function toggleForm() {
+            document.getElementById('form-container').classList.toggle('hidden');
+        }
+
+        function toggleFields() {
+            const type = document.getElementById('prodType').value;
+            document.getElementById('fields-bebe').classList.toggle('hidden', type !== 'Bebe');
+            document.getElementById('fields-peau').classList.toggle('hidden', type !== 'Peau');
+        }
+
+        document.getElementById('client-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const type = document.getElementById('prodType').value;
+            
+            const newEntry = {
+                id: Date.now(),
+                name: document.getElementById('name').value,
+                phone: document.getElementById('phone').value,
+                email: document.getElementById('email').value,
+                type: type,
+                // Data Bébé
+                poidsInit: document.getElementById('poidsInit').value,
+                poids1M: document.getElementById('poids1M').value,
+                produitLait: document.getElementById('produitLait').value,
+                // Data Peau
+                etatPeauInit: document.getElementById('etatPeauInit').value,
+                etatPeauFinal: document.getElementById('etatPeauFinal').value,
+                date: new Date().toLocaleDateString('fr-FR')
+            };
+
+            clients.unshift(newEntry);
+            saveAndRender();
+            document.getElementById('client-form').reset();
+            toggleForm();
+        });
+
+        function saveAndRender(filter = "") {
+            localStorage.setItem('paraExpert', JSON.stringify(clients));
+            const list = document.getElementById('client-list');
+            list.innerHTML = '';
+
+            const filtered = clients.filter(c => 
+                c.name.toLowerCase().includes(filter.toLowerCase()) || c.phone.includes(filter)
+            );
+
+            filtered.forEach(c => {
+                const isBebe = c.type === 'Bebe';
+                list.innerHTML += `
+                    <div class="bg-white p-5 rounded-2xl shadow-sm border-l-8 ${isBebe ? 'border-blue-400' : 'border-pink-400'}">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h3 class="text-lg font-black text-gray-800 uppercase">${c.name}</h3>
+                                <div class="text-emerald-700 font-bold text-sm">
+                                    <i class="fas fa-phone"></i> ${c.phone} 
+                                    ${c.email ? ` | <i class="fas fa-envelope"></i> ${c.email}` : ''}
+                                </div>
+                            </div>
+                            <button onclick="deleteClient(${c.id})" class="text-red-200"><i class="fas fa-trash"></i></button>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-1 gap-2 bg-gray-50 p-3 rounded-xl border border-dashed border-gray-200">
+                            ${isBebe ? `
+                                <p class="text-sm"><strong>🍼 Produit :</strong> ${c.produitLait}</p>
+                                <div class="grid grid-cols-2 text-xs font-bold mt-1">
+                                    <div class="text-blue-600">Poids Init: ${c.poidsInit}kg</div>
+                                    <div class="text-green-600">A+1 mois: ${c.poids1M}kg</div>
+                                </div>
+                            ` : `
+                                <p class="text-sm"><strong>✨ État Initial :</strong> ${c.etatPeauInit}</p>
+                                <p class="text-sm text-emerald-600"><strong>📈 Évolution :</strong> ${c.etatPeauFinal}</p>
+                            `}
+                        </div>
+                        <div class="mt-2 text-[10px] text-gray-400 text-right uppercase">Fiche du ${c.date}</div>
+                    </div>
+                `;
+            });
+        }
+
+        function deleteClient(id) {
+            if(confirm('Supprimer cette fiche ?')) {
+                clients = clients.filter(c => c.id !== id);
+                saveAndRender();
+            }
+        }
+
+        function exportToCSV() {
+            let csv = "Nom,Tel,Email,Type,Poids_Init,Poids_1M,Produit,Peau_Init,Peau_Evolution,Date\n";
+            clients.forEach(c => {
+                csv += `"${c.name}","${c.phone}","${c.email}","${c.type}","${c.poidsInit}","${c.poids1M}","${c.produitLait}","${c.etatPeauInit}","${c.etatPeauFinal}","${c.date}"\n`;
+            });
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Suivi_Parapharmacie.csv';
+            a.click();
+        }
+
+        document.getElementById('search').addEventListener('input', (e) => saveAndRender(e.target.value));
+        
+        saveAndRender();
+    </script>
+</body>
+</html>
